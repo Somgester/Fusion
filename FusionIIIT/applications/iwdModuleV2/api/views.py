@@ -429,7 +429,8 @@ def created_requests_view(request):
                 'area': request_object.area,
                 'description': request_object.description,
                 'requestCreatedBy': request_object.requestCreatedBy,
-                'file_id': file_obj.id
+                'file_id': file_obj.id,
+                'processed_by_director': request_object.directorApproval,
             }
             obj.append(element)
 
@@ -552,7 +553,7 @@ def handle_dean_process_requests(request):
     
     remarks = data.get('remarks')
     attachment = request.FILES.get('attachment')
-    receiver_user, receiver_desg = data['designation'].split('|')
+    receiver_desg, receiver_user = data.get('designation').split('|')
 
     forward_file(
         file_id=fileid,
@@ -571,8 +572,8 @@ def handle_dean_process_requests(request):
 @permission_classes([IsAuthenticated])
 def dean_processed_requests(request):
     obj = []
-    params = request.query_params
-    desg = params.get('role')
+    desg = request.session.get('currentDesignationSelected')
+
     inbox_files = view_inbox(
         username=request.user.username,
         designation=desg,
@@ -581,16 +582,17 @@ def dean_processed_requests(request):
 
     for result in inbox_files:
         src_object_id = result['src_object_id']
-        request_object = Requests.objects.filter(id=src_object_id).first()
+        request_object = Requests.objects.filter(id=src_object_id, directorApproval=0).first()
         file_obj = File.objects.get(src_object_id=src_object_id, src_module="IWD")
         if request_object:
             element = {
-                'id': request_object.id,
+                'request_id': request_object.id,
                 'name': request_object.name,
                 'area': request_object.area,
                 'description': request_object.description,
                 'requestCreatedBy': request_object.requestCreatedBy,
-                'file_id': file_obj.id
+                'file_id': file_obj.id,
+                'processed_by_director': request_object.directorApproval,
             }
             obj.append(element)
 
@@ -604,8 +606,8 @@ def handle_director_approval_requests(request):
     request_id = File.objects.get(id=fileid).src_object_id
 
     remarks = data.get('remarks')
-    attachment = request.FILES.get('attachment')
-    receiver_user, receiver_desg = data['designation'].split('|')
+    attachment = request.FILES.get('file')
+    receiver_desg, receiver_user = data.get('designation').split('|')
 
     forward_file(
         file_id=fileid,
@@ -786,7 +788,8 @@ def handleUpdateRequests(request):
 @permission_classes([IsAuthenticated])
 def issueWorkOrder(request):
     obj = []
-    desg = request.session.get('currentDesignationSelected')
+    params = request.query_params
+    desg = params.get('role')
 
     # Retrieve inbox files
     inbox_files = view_inbox(
@@ -800,10 +803,10 @@ def issueWorkOrder(request):
         src_object_id = result['src_object_id']
         request_object = Requests.objects.filter(
             id=src_object_id,
-            directorApproval=1,
+            # directorApproval=1,
             issuedWorkOrder=0
         ).first()
-
+        print(request_object, 11)
         if request_object:
             element = {
                 "id": request_object.id,
